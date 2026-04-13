@@ -1,0 +1,88 @@
+# Docker Swarm Stack Configuration for PhD Research
+# Baseline comparison environment for Objective 3
+version: '3.8'
+
+services:
+  # CPU Stress Application - matching Kubernetes deployment
+  cpu-stress-app:
+    image: ubuntu:22.04
+    command: >
+      bash -c "
+        apt-get update && 
+        apt-get install -y python3 python3-pip &&
+        pip3 install flask psutil requests &&
+        python3 /app/cpu_stress_app.py
+      "
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./cpu_stress_app.py:/app/cpu_stress_app.py:ro
+    
+    # Static resource allocation - demonstrates Docker Swarm limitation
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      resources:
+        # Note: Docker Swarm resource constraints are less sophisticated
+        # than Kubernetes requests/limits model
+        limits:
+          cpus: '1.0'      # 1 core limit - static allocation
+          memory: 512M     # 512MB limit - static allocation
+        reservations:
+          cpus: '0.1'      # 0.1 core reservation
+          memory: 128M     # 128MB reservation
+      
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+      
+      # Labels for research tracking
+      labels:
+        - "research=phd-objective-3"
+        - "platform=docker-swarm"
+        - "workload-type=cpu-memory-stress"
+
+  # Optional: Monitoring service (simpler than Kubernetes metrics-server)
+  monitoring:
+    image: ubuntu:22.04
+    command: >
+      bash -c "
+        apt-get update &&
+        apt-get install -y python3 python3-pip curl &&
+        pip3 install psutil flask &&
+        python3 /monitor/monitor.py
+      "
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./monitoring/monitor.py:/monitor/monitor.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      
+      labels:
+        - "research=phd-objective-3"
+        - "component=monitoring"
+
+networks:
+  default:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+    labels:
+      - "research=phd-objective-3"
+
+# Docker Swarm does not have native ConfigMaps equivalent
+# Application code is mounted as volumes instead

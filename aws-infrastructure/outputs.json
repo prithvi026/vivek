@@ -1,0 +1,168 @@
+{
+  "cluster_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://65.1.2.253:6443"
+  },
+  "cluster_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "phd-k8s-cluster"
+  },
+  "docker_manager_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-0c26ab1da8bacc0a5"
+  },
+  "docker_manager_private_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.1.222"
+  },
+  "docker_manager_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "65.1.135.141"
+  },
+  "docker_worker_1_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-06ebdadf540de8254"
+  },
+  "docker_worker_1_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "13.232.42.50"
+  },
+  "docker_worker_2_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-04fd807ec3e81bc27"
+  },
+  "docker_worker_2_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "52.66.204.50"
+  },
+  "docker_worker_private_ips": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "10.0.1.21",
+      "10.0.1.17"
+    ]
+  },
+  "docker_worker_public_ips": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "13.232.42.50",
+      "52.66.204.50"
+    ]
+  },
+  "k8s_control_plane_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-0346ca0905602a0ca"
+  },
+  "k8s_control_plane_private_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.1.85"
+  },
+  "k8s_control_plane_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "65.1.2.253"
+  },
+  "k8s_worker_1_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-07176cd071ba7f6bc"
+  },
+  "k8s_worker_1_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "65.0.96.177"
+  },
+  "k8s_worker_2_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "i-002ad74030c49d15d"
+  },
+  "k8s_worker_2_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "43.205.142.36"
+  },
+  "k8s_worker_private_ips": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "10.0.1.92",
+      "10.0.1.29"
+    ]
+  },
+  "k8s_worker_public_ips": {
+    "sensitive": false,
+    "type": [
+      "tuple",
+      [
+        "string",
+        "string"
+      ]
+    ],
+    "value": [
+      "65.0.96.177",
+      "43.205.142.36"
+    ]
+  },
+  "karpenter_controller_role_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:iam::648786395595:role/KarpenterControllerIAMRole"
+  },
+  "private_subnet_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "subnet-06e72b703d8642681"
+  },
+  "public_subnet_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "subnet-05029c9a22a3b123e"
+  },
+  "ssh_command_docker_manager": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ssh -i ~/.ssh/id_rsa ubuntu@65.1.135.141"
+  },
+  "ssh_command_k8s_control_plane": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ssh -i ~/.ssh/id_rsa ubuntu@65.1.2.253"
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-0607321b2c359b220"
+  }
+}

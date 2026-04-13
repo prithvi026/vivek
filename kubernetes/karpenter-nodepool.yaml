@@ -1,0 +1,89 @@
+# Karpenter NodePool - KMAB Framework Implementation
+# This implements the Memory-Aware Bin-Packing (KMAB) framework from Objective 2
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: memory-optimised-pool
+  labels:
+    research: phd-objective-2
+    strategy: bin-pack-memory
+spec:
+  template:
+    metadata:
+      labels:
+        node-type: "karpenter-managed"
+        research-phase: "objective-2"
+    spec:
+      nodeClassRef:
+        apiVersion: karpenter.k8s.aws/v1beta1
+        kind: EC2NodeClass
+        name: memory-nodeclass
+      
+      # Phase 2: Bin-pack optimization constraints
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]  # Predictable for research
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: ["t2.micro", "t3.micro", "t3.small"]  # Research instance types
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+      
+      # Resource requests for bin-packing score calculation
+      taints:
+        - key: "karpenter-managed"
+          value: "true"
+          effect: "NoSchedule"
+  
+  # Phase 3: Provisioning limits
+  limits:
+    cpu: "8"      # Maximum CPU cores across all Karpenter nodes
+    memory: 4Gi   # Maximum memory across all Karpenter nodes
+  
+  # Phase 5: Consolidation policy - critical for KMAB
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    consolidateAfter: 30s  # Quick consolidation for research
+    expireAfter: 300s      # Expire nodes after 5 minutes for cost control
+
+---
+# EC2NodeClass for Karpenter
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: memory-nodeclass
+  labels:
+    research: phd-objective-2
+spec:
+  # AMI selection for consistent environment
+  amiFamily: AL2
+  
+  # Security and networking
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "phd-k8s-cluster"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "phd-k8s-cluster"
+  
+  # Instance profile for AWS permissions
+  role: "KarpenterControllerIAMRole"
+  
+  # User data for node initialization
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh phd-k8s-cluster
+    
+    # Install monitoring tools for research
+    yum install -y htop iotop sysstat
+    
+    # Configure memory monitoring
+    echo "*/1 * * * * root free -m >> /var/log/memory-usage.log" >> /etc/crontab
+  
+  # Tags for research tracking
+  tags:
+    Project: "k8s-docker-comparison"
+    Research: "phd-objective-2"
+    Environment: "research"

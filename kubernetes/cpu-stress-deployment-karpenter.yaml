@@ -1,0 +1,268 @@
+# CPU Stress Application Deployment for KMAB Framework
+# Objective 2: Phase 2 - Bin-packing optimization with explicit resource requests
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-stress-app
+  labels:
+    app: cpu-stress
+    research: phd-objective-2
+    component: workload-generator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cpu-stress
+  template:
+    metadata:
+      labels:
+        app: cpu-stress
+        research: phd-objective-2
+        workload-type: cpu-memory-stress
+    spec:
+      # Node affinity for Karpenter-managed nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values: ["karpenter-managed"]
+      
+      # Tolerate Karpenter taints
+      tolerations:
+        - key: "karpenter-managed"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      
+      containers:
+      - name: cpu-stress-container
+        image: ubuntu:22.04
+        command: ["/bin/bash"]
+        args: ["-c", "apt-get update && apt-get install -y python3 python3-pip && pip3 install flask psutil requests && python3 /app/cpu_stress_app.py"]
+        
+        ports:
+        - containerPort: 8081
+          name: http
+          protocol: TCP
+        
+        # Critical: Explicit resource requests for Phase 2 bin-packing score function
+        resources:
+          requests:
+            cpu: "100m"       # 0.1 core - enables accurate bin-packing
+            memory: "128Mi"   # feeds Phase 2 score function: score(t) = fit_count / (waste_ratio + epsilon)
+          limits:
+            cpu: "1000m"      # hard ceiling: 1 core
+            memory: "512Mi"   # hard ceiling: 512 MB - prevents memory waste
+        
+        # Health checks for research reliability
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        
+        # Environment variables for research configuration
+        env:
+        - name: RESEARCH_MODE
+          value: "objective-2"
+        - name: FLASK_PORT
+          value: "8081"
+        - name: CPU_STRESS_DURATION
+          value: "300"  # 5 minutes default
+        
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+      
+      volumes:
+      - name: app-code
+        configMap:
+          name: cpu-stress-app-config
+      
+      # Research-specific pod settings
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+
+---
+# Service to expose the CPU stress application
+apiVersion: v1
+kind: Service
+metadata:
+  name: cpu-stress-service
+  labels:
+    app: cpu-stress
+    research: phd-objective-2
+spec:
+  type: NodePort
+  ports:
+  - port: 8081
+    targetPort: 8081
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  selector:
+    app: cpu-stress
+
+---
+# ConfigMap containing the Flask application code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cpu-stress-app-config
+  labels:
+    app: cpu-stress
+    research: phd-objective-2
+data:
+  cpu_stress_app.py: |
+    #!/usr/bin/env python3
+    """
+    CPU Stress Application for PhD Research
+    Objective 2: Kubernetes Memory Waste Reduction Study
+    """
+    
+    import os
+    import time
+    import threading
+    import multiprocessing
+    import psutil
+    from flask import Flask, jsonify, request
+    
+    app = Flask(__name__)
+    
+    # Global variables for stress control
+    cpu_stress_active = False
+    memory_stress_active = False
+    stress_threads = []
+    
+    def cpu_stress_worker(duration=300):
+        """CPU stress worker function"""
+        global cpu_stress_active
+        end_time = time.time() + duration
+        
+        while time.time() < end_time and cpu_stress_active:
+            # Busy loop to consume CPU
+            for _ in range(1000000):
+                pass
+    
+    def memory_stress_worker(size_mb=100, duration=300):
+        """Memory stress worker function"""
+        global memory_stress_active
+        memory_blocks = []
+        end_time = time.time() + duration
+        
+        try:
+            while time.time() < end_time and memory_stress_active:
+                # Allocate memory in chunks
+                memory_blocks.append(bytearray(1024 * 1024))  # 1MB chunks
+                if len(memory_blocks) * 1 >= size_mb:
+                    break
+                time.sleep(0.1)
+                
+            # Hold memory for duration
+            while time.time() < end_time and memory_stress_active:
+                time.sleep(1)
+                
+        except MemoryError:
+            print("Memory allocation limit reached")
+        finally:
+            del memory_blocks
+    
+    @app.route('/health')
+    def health():
+        """Health check endpoint"""
+        return jsonify({
+            'status': 'healthy',
+            'cpu_stress_active': cpu_stress_active,
+            'memory_stress_active': memory_stress_active,
+            'cpu_usage': psutil.cpu_percent(interval=1),
+            'memory_usage': psutil.virtual_memory().percent
+        })
+    
+    @app.route('/start_cpu_stress')
+    def start_cpu_stress():
+        """Start CPU stress test"""
+        global cpu_stress_active, stress_threads
+        
+        if not cpu_stress_active:
+            cpu_stress_active = True
+            duration = int(request.args.get('duration', 300))
+            
+            # Start CPU stress on all available cores
+            cpu_count = multiprocessing.cpu_count()
+            for i in range(cpu_count):
+                thread = threading.Thread(target=cpu_stress_worker, args=(duration,))
+                thread.start()
+                stress_threads.append(thread)
+            
+            return jsonify({
+                'status': 'CPU stress started',
+                'duration': duration,
+                'threads': cpu_count
+            })
+        else:
+            return jsonify({'status': 'CPU stress already active'})
+    
+    @app.route('/start_memory_stress')
+    def start_memory_stress():
+        """Start memory stress test"""
+        global memory_stress_active
+        
+        if not memory_stress_active:
+            memory_stress_active = True
+            size_mb = int(request.args.get('size_mb', 100))
+            duration = int(request.args.get('duration', 300))
+            
+            thread = threading.Thread(target=memory_stress_worker, args=(size_mb, duration))
+            thread.start()
+            stress_threads.append(thread)
+            
+            return jsonify({
+                'status': 'Memory stress started',
+                'size_mb': size_mb,
+                'duration': duration
+            })
+        else:
+            return jsonify({'status': 'Memory stress already active'})
+    
+    @app.route('/stop_stress')
+    def stop_stress():
+        """Stop all stress tests"""
+        global cpu_stress_active, memory_stress_active, stress_threads
+        
+        cpu_stress_active = False
+        memory_stress_active = False
+        
+        # Wait for threads to finish
+        for thread in stress_threads:
+            thread.join(timeout=1)
+        
+        stress_threads = []
+        
+        return jsonify({'status': 'All stress tests stopped'})
+    
+    @app.route('/metrics')
+    def get_metrics():
+        """Get current system metrics"""
+        return jsonify({
+            'cpu_usage': psutil.cpu_percent(interval=1),
+            'memory_usage': psutil.virtual_memory().percent,
+            'memory_available': psutil.virtual_memory().available,
+            'memory_total': psutil.virtual_memory().total,
+            'cpu_count': multiprocessing.cpu_count(),
+            'load_average': os.getloadavg() if hasattr(os, 'getloadavg') else [0, 0, 0]
+        })
+    
+    if __name__ == '__main__':
+        port = int(os.environ.get('FLASK_PORT', 8081))
+        app.run(host='0.0.0.0', port=port, debug=False)

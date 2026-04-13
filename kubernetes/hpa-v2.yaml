@@ -1,0 +1,76 @@
+# Horizontal Pod Autoscaler v2 - KMAB Framework Phase 4
+# Real-time scaling based on CPU and Memory utilization
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cpu-stress-hpa
+  labels:
+    research: phd-objective-2
+    component: kmab-phase-4
+    scaling-strategy: dual-metric
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cpu-stress-app
+  
+  # Replica constraints for research control
+  minReplicas: 2
+  maxReplicas: 5
+  
+  # Dual-metric scaling - CPU and Memory
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70    # tau_cpu threshold in KMAB Phase 4
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80    # tau_mem threshold in KMAB Phase 4
+  
+  # Asymmetric stabilization windows for research precision
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30   # Fast scale-up to avoid service degradation
+      policies:
+      - type: Percent
+        value: 100    # Double replicas if needed
+        periodSeconds: 15
+      - type: Pods
+        value: 2      # Add at most 2 pods at once
+        periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 60   # Slower scale-down to prevent thrashing
+      policies:
+      - type: Percent
+        value: 50     # Remove 50% of replicas max
+        periodSeconds: 30
+      - type: Pods
+        value: 1      # Remove at most 1 pod at once
+        periodSeconds: 30
+      selectPolicy: Min
+
+---
+# ServiceMonitor for Prometheus metrics collection (if Prometheus is installed)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cpu-stress-metrics
+  labels:
+    research: phd-objective-2
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: cpu-stress
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s  # Matches HPA evaluation cycle
+    scrapeTimeout: 10s
